@@ -1,7 +1,3 @@
-/* Main file for lab1. 
-Built from MatrixMulti example.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -14,7 +10,6 @@ Built from MatrixMulti example.
 
 #ifdef AOCL
 #include "CL/opencl.h"
-
 #include "AOCLUtils/aocl_utils.h"
 
 using namespace aocl_utils;
@@ -25,21 +20,11 @@ void cleanup();
 #define DEVICE_NAME_LEN 128
 static char dev_name[DEVICE_NAME_LEN];
 
-static float A[8] = {
-  1.0f,  1.0f,  1.0f,  1.0f,
-  1.0f,  1.0f,  1.0f,  1.0f};
+static float A[80000] = { 0.0f };
 
-static float B[24] = {
-  2.0f,  2.0f,  2.0f,  2.0f, 2.0f, 2.0f,
-  2.0f,  2.0f,  2.0f,  2.0f, 2.0f, 2.0f,
-  2.0f,  2.0f,  2.0f,  2.0f, 2.0f, 2.0f,
-  2.0f,  2.0f,  2.0f,  2.0f, 2.0f, 2.0f};
+static float B[240000] = { 0.0f };
 
-static float C[12] = {
-  3.0f,  3,0f,  3.0f,  3.0f,  3.0f,  3.0f,
-  3.0f,  3,0f,  3.0f,  3.0f,  3.0f,  3.0f};
-
-
+static float C[120000] = { 0.0f };
 
 int main()
 {
@@ -58,10 +43,13 @@ int main()
     char *source_str;
     size_t source_size;
 
-    int wA=4;
-    int hA=2;
-    int wB=6;
-    int hB=4;
+    int wA=400;
+    int hA=200;
+
+    int wB=600;
+    int hB=400;
+
+    // width and height for matricies C and D
     int wC = wB;
     int hC = hA;
 
@@ -150,9 +138,24 @@ int main()
       exit(1);
     }
 
-    float *C = (float *)calloc (hC * wC ,  sizeof(float));
+    /* Allocate the values for matrix A */
+    for (int i = 0; i < wA*hA; i++){
+        A[i] = 1.0f;
+    }
+
+    /* Allocate the values for matrix B */
+    for (int i = 0; i < wB*hB; i++){
+        B[i] = 2.0f;
+    }
+
+    /* Allocate the values for matrix C */
+    for (int i = 0; i < wC*hC; i++){
+        C[i] = 3.0f;
+    }
+
+    float *D = (float *)calloc (hC * wC ,  sizeof(float));
     for (int i = 0; i < wC*hC; i++) {
-      printf ("%f ", C[i]);
+      printf ("%f ", D[i]);
     }
     printf("\n");
 
@@ -178,6 +181,7 @@ int main()
     /* copy Matrix C to the device */
     clEnqueueWriteBuffer(command_queue, bufferC, CL_TRUE, 0,
             wC*hC*sizeof(float), (void *)C, 0, NULL, NULL);
+
 
     /* allocate space for Matrix D on the device */
     cl_mem bufferD = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
@@ -207,7 +211,7 @@ int main()
     }
 
     /* Copy the output data back to the host */
-    clEnqueueReadBuffer(command_queue, bufferC, CL_TRUE, 0, wC*hC*sizeof(float),
+    clEnqueueReadBuffer(command_queue, bufferD, CL_TRUE, 0, wC*hC*sizeof(float),
          (void *)D, 0, NULL, NULL);
 
     /* Verify result */
