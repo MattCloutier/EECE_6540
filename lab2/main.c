@@ -38,6 +38,7 @@ int main()
 
     char fileName[] = "./mykernel.cl";
 
+    int n_terms = 2;
     int num_wg = 1024;
     int result[num_wg] = {0};
 
@@ -151,7 +152,7 @@ int main()
 
     ret = 0;
     /* Create kernel argument */
-    size_t globalws[1] = {num_wg};
+    size_t globalws[1] = {1024};
     size_t localws[1] = {32};
 
     ret = clSetKernelArg(kernel, 0, sizeof(cl_int), (void *)&n_terms);
@@ -190,7 +191,7 @@ int main()
     printf("    Pi = %f\n", pi);
 
     /* free resources */
-    clReleaseMemObject(cBuffer);
+    clReleaseMemObject(bufferC);
     clReleaseCommandQueue(command_queue);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
