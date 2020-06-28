@@ -20,8 +20,6 @@ void cleanup();
 #define DEVICE_NAME_LEN 128
 static char dev_name[DEVICE_NAME_LEN];
 
-#define TEXT_FILE "kafka.txt"
-
 int main()
 {
     cl_uint platformCount;
@@ -38,18 +36,10 @@ int main()
     size_t global_size;
     size_t local_size;
 
-
-    FILE *fp;
     char fileName[] = "./mykernel.cl";
-    char *source_str;
-    size_t source_size;
 
-    int result[4] = {0, 0, 0, 0};
-    char pattern[16] = {'t','h','a','t','w','i','t','h','h','a','v','e','f','r','o','m'};
-    FILE *text_handle;
-    char *text;
-    size_t text_size;
-    int chars_per_item;
+    int num_wg = 1024;
+    int result[num_wg] = {0};
 
 #ifdef __APPLE__
     /* Get Platform and Device Info */
@@ -151,45 +141,29 @@ int main()
       exit(1);
     }
 
-    /* Read text file and place content into buffer */
-    text_handle = fopen(TEXT_FILE, "r");
-    if(text_handle == NULL) {
-       perror("Couldn't find the text file");
-       exit(1);
-    }
-    fseek(text_handle, 0, SEEK_END);
-    text_size = ftell(text_handle)-1;
-    rewind(text_handle);
-    text = (char*)calloc(text_size, sizeof(char));
-    fread(text, sizeof(char), text_size, text_handle);
-    fclose(text_handle);
-    chars_per_item = text_size / global_size + 1;
-
     /* Create buffers to hold the text characters and count */
-    cl_mem text_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY |
-          CL_MEM_COPY_HOST_PTR, text_size, text, &ret);
+    cl_mem bufferC = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+                                    num_wg*sizeof(float), NULL, &ret);
     if(ret < 0) {
        perror("Couldn't create a buffer");
        exit(1);
     };
-    cl_mem result_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE |
-          CL_MEM_COPY_HOST_PTR, sizeof(result), result, NULL);
 
     ret = 0;
     /* Create kernel argument */
-    ret = clSetKernelArg(kernel, 0, sizeof(pattern), pattern);
-    ret |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &text_buffer);
-    ret |= clSetKernelArg(kernel, 2, sizeof(chars_per_item), &chars_per_item);
-    ret |= clSetKernelArg(kernel, 3, 4 * sizeof(int), NULL);
-    ret |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &result_buffer);
+    size_t globalws[1] = {num_wg};
+    size_t localws[1] = {32};
+
+    ret = clSetKernelArg(kernel, 0, sizeof(cl_int), (void *)&n_terms);
+    ret |= clSetKernelArg(kernel, 1, localws[0]*sizeof(float), NULL);
+    ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&bufferC);
     if(ret < 0) {
        printf("Couldn't set a kernel argument");
        exit(1);
     };
 
     /* Enqueue kernel */
-    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_size,
-          &local_size, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalws, localws, 0, NULL, NULL);
     if(ret < 0) {
        perror("Couldn't enqueue the kernel");
        printf("Error code: %d\n", ret);
@@ -197,25 +171,26 @@ int main()
     }
 
     /* Read and print the result */
-    ret = clEnqueueReadBuffer(command_queue, result_buffer, CL_TRUE, 0,
-       sizeof(result), &result, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, bufferC, CL_TRUE, 0, sizeof(result), &result, 0, NULL, NULL);
     if(ret < 0) {
        perror("Couldn't read the buffer");
        exit(1);
     }
 
-    printf("\nResults: \n");
-    printf("Number of occurrences of 'that': %d\n", result[0]);
-    printf("Number of occurrences of 'with': %d\n", result[1]);
-    printf("Number of occurrences of 'have': %d\n", result[2]);
-    printf("Number of occurrences of 'from': %d\n", result[3]);
+    float pi;
+    float pi_4 = 0;
 
+    for (int i = 0; i < num_wg; i++)
+      pi_4 += result[i];
+
+    pi = pi_4 * 4;
+
+    printf("\nResults: \n");
+    printf("    Pi / 4 = %f\n", pi_4);
+    printf("    Pi = %f\n", pi);
 
     /* free resources */
-    free(text);
-
-    clReleaseMemObject(text_buffer);
-    clReleaseMemObject(result_buffer);
+    clReleaseMemObject(cBuffer);
     clReleaseCommandQueue(command_queue);
     clReleaseKernel(kernel);
     clReleaseProgram(program);

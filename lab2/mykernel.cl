@@ -1,61 +1,36 @@
-__kernel void string_search(char16 pattern, __global char* text,
-     int chars_per_item, __local int* local_result, 
-     __global int* global_result) {
+__kernel void calc_pi(int n_element,
+                      __local float* local_pi,
+                      __global float* pi_4)
+{
 
-   char16 text_vector, check_vector;
+   /* Get the work group size, work-item ID and work-group ID */
+   int wg_size = get_local_size(0);
+   int wi_id = get_local_id(0);
+   int wg_id = get_group_id(0);
 
-   /* initialize local data */
-   local_result[0] = 0;
-   local_result[1] = 0;
-   local_result[2] = 0;
-   local_result[3] = 0;
+   /* Initialize the local portion of the Pi calculation */
 
-   /* Make sure previous processing has completed */
+   for (i = 0; i < wg_size; i++)
+      local_pi[i] = 0;
+
+   /* Wait for all local data to be cleared before continuing. */
    barrier(CLK_LOCAL_MEM_FENCE);
 
-   int item_offset = get_global_id(0) * chars_per_item;
+   /* Compute the fractional components of Pi for this partial sum */
+   int i = get_global_id(0);
 
-   /* Iterate through characters in text */
-   for(int i=item_offset; i<item_offset + chars_per_item; i++) {
-
-      /* load global text into private buffer */
-      /* vloadn(offset, p) Read vectors from a pointer to memory. 
-         Return sizeof (gentypen) bytes of data read from location 
-         (p + (offset * n)). n is the size of the generic type */
-      text_vector = vload16(0, text + i);
-
-      /* compare text vector and pattern */
-      check_vector = text_vector == pattern;
-
-      /* Each element in a vector can be accessed by .sX 
-       with X being 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
-      /* all() identifies whether every most significant bit (MSB) 
-       in every component of a vector is set to 1. */
-      /* Check for 'that' */
-      if(all(check_vector.s0123))
-         atomic_inc(local_result);
-
-      /* Check for 'with' */
-      if(all(check_vector.s4567))
-         atomic_inc(local_result + 1);
-
-      /* Check for 'have' */
-      if(all(check_vector.s89AB))
-         atomic_inc(local_result + 2);
-
-      /* Check for 'from' */
-      if(all(check_vector.sCDEF))
-         atomic_inc(local_result + 3);
-   }
+   s = 1 / (4 * i + 1) - 1 / (4 * i + 3);
+   local_pi[wi_id] = s;
 
    /* Make sure local processing has completed */
    barrier(CLK_GLOBAL_MEM_FENCE);
 
+   /* Perform local reduction. Sum the local_pi values into local_pi[0] */
+   for(i = 1; i < wg_size; i++)
+      local_pi[0] += local_pi[i];
+
    /* Perform global reduction */
    if(get_local_id(0) == 0) {
-      atomic_add(global_result, local_result[0]);
-      atomic_add(global_result + 1, local_result[1]);
-      atomic_add(global_result + 2, local_result[2]);
-      atomic_add(global_result + 3, local_result[3]);
+      pi_4[wg_id] = local_pi[0];
    }
 }
