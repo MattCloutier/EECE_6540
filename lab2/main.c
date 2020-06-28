@@ -35,12 +35,16 @@ int main()
     cl_uint num_comp_units;
     size_t global_size;
     size_t local_size;
-
+    
+    FILE *fp;
     char fileName[] = "./mykernel.cl";
+    char *source_str;
+    size_t source_size;
 
-    int n_terms = 2;
-    int num_wg = 1024;
-    int result[num_wg] = {0};
+    int n_terms = 1024;
+    int num_wg = 32;
+    float result[num_wg] = {0};
+
 
 #ifdef __APPLE__
     /* Get Platform and Device Info */
@@ -136,7 +140,7 @@ int main()
     }
 
     /* Create OpenCL Kernel */
-    kernel = clCreateKernel(program, "string_search", &ret);
+    kernel = clCreateKernel(program, "calc_pi", &ret);
     if (ret != CL_SUCCESS) {
       printf("Failed to create kernel.\n");
       exit(1);
@@ -164,7 +168,7 @@ int main()
     };
 
     /* Enqueue kernel */
-    ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalws, localws, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, globalws, localws, 0, NULL, NULL);
     if(ret < 0) {
        perror("Couldn't enqueue the kernel");
        printf("Error code: %d\n", ret);
@@ -172,7 +176,7 @@ int main()
     }
 
     /* Read and print the result */
-    ret = clEnqueueReadBuffer(command_queue, bufferC, CL_TRUE, 0, sizeof(result), &result, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, bufferC, CL_TRUE, 0, num_wg*sizeof(float), (void *)&result, 0, NULL, NULL);
     if(ret < 0) {
        perror("Couldn't read the buffer");
        exit(1);
@@ -181,14 +185,15 @@ int main()
     float pi;
     float pi_4 = 0;
 
-    for (int i = 0; i < num_wg; i++)
-      pi_4 += result[i];
+    for (int i = 0; i < num_wg; i++){
+        pi_4 += result[i];
+    }
 
     pi = pi_4 * 4;
 
     printf("\nResults: \n");
-    printf("    Pi / 4 = %f\n", pi_4);
-    printf("    Pi = %f\n", pi);
+    printf("    Pi / 4 = %lf\n", pi_4);
+    printf("    Pi = %lf\n", pi);
 
     /* free resources */
     clReleaseMemObject(bufferC);
