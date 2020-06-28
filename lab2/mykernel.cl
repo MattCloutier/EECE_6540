@@ -10,7 +10,7 @@ __kernel void calc_pi(int n_element,
 
    /* Initialize the local portion of the Pi calculation */
 
-   for (i = 0; i < wg_size; i++)
+   for (int i = 0; i < wg_size; i++)
       local_pi[i] = 0;
 
    /* Wait for all local data to be cleared before continuing. */
@@ -18,6 +18,7 @@ __kernel void calc_pi(int n_element,
 
    /* Compute the fractional components of Pi for this partial sum */
    int i = get_global_id(0);
+   float s;
 
    s = 1 / (4 * i + 1) - 1 / (4 * i + 3);
    local_pi[wi_id] = s;
@@ -26,7 +27,7 @@ __kernel void calc_pi(int n_element,
    barrier(CLK_GLOBAL_MEM_FENCE);
 
    /* Perform local reduction. Sum the local_pi values into local_pi[0] */
-   for(i = 1; i < wg_size; i++)
+   for(int i = 1; i < wg_size; i++)
       local_pi[0] += local_pi[i];
 
    /* Perform global reduction */
