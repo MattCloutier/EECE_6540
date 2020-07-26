@@ -108,11 +108,11 @@ void MatrixMulti(queue &q, const IntMatrix &matrix_a, const IntMatrix &matrix_b,
       {
         // identify the element to compute
         size_t c_row = i[0], c_col = i[1];
-        sum[c_row]][c_col] = 0;
+        sum[c_row][c_col] = 0;
 
         // for loop to do element wise multiplication and accumulation
         for (size_t k = 0; k < widthA; k++)
-          sum[c_row][c_col] = a[c_row*widthA + k] * b[k*widthB + c_col];
+          sum[c_row][c_col] += a[c_row*widthA + k] * b[k*widthB + c_col];
 
         // add the element in Matrix C to Matrix D.
         // note how we access the element in C, which is a one-dimensional buffer
